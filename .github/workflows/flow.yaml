@@ -1,0 +1,53 @@
+name: flow
+
+on:
+  push:
+      tags:
+        - "*"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: sudo apt-get install protobuf-compiler
+
+      - name: Check codestyle 
+        run: cargo fmt --all -- --check
+
+      - name: Lint 
+        run: cargo clippy --all-targets --all-features -- -A clippy::redundant_closure
+
+      - name: Build
+        run:  cargo build --release && cp ./target/release/spb_arrival_bot ./spb_arrival_bot
+      
+      - name: stop service
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          password: ${{ secrets.PASSWORD }}
+          script: systemctl stop spb_arrival_bot && rm /root/spb_arrival_bot/spb_arrival_bot
+
+      - name: deploy to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          password: ${{ secrets.PASSWORD }}
+          source: "./spb_arrival_bot"
+          target: /root/spb_arrival_bot
+      
+      - name: start service
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          password: ${{ secrets.PASSWORD }}
+          script: systemctl start spb_arrival_bot && systemctl status spb_arrival_bot
