@@ -217,6 +217,8 @@ async fn start(
     bot_msg: MessageId,
     q: CallbackQuery,
 ) -> HandlerResult {
+    log::warn!("Start:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     let mut keys: Vec<Vec<InlineKeyboardButton>> = vec![vec![InlineKeyboardButton::callback(
@@ -247,6 +249,8 @@ async fn start(
 }
 
 async fn new_or_saved(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult {
+    log::warn!("NewOrSaved:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     let bot_msg = q.message.unwrap().id;
@@ -317,6 +321,8 @@ async fn new_or_saved(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> Handl
 }
 
 async fn delete_record(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult {
+    log::warn!("DeleteRecord:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     if let Some(name) = q.data {
@@ -345,6 +351,8 @@ async fn route_number(
     bot_msg: MessageId,
     msg: Message,
 ) -> HandlerResult {
+    log::warn!("RouteNumber:\r\n{msg:#?}");
+
     if let Some(number) = msg.text() {
         let mut keys: Vec<Vec<InlineKeyboardButton>> = vec![];
         {
@@ -393,6 +401,8 @@ async fn route_number(
 }
 
 async fn route_direction(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult {
+    log::warn!("RouteDirection:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id.clone()).await?;
 
     let bot_msg = q.message.unwrap().id;
@@ -425,6 +435,8 @@ async fn route_stop(
     route_id: RouteId,
     q: CallbackQuery,
 ) -> HandlerResult {
+    log::warn!("RouteStop:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     let msg = q.message.unwrap().id;
@@ -471,6 +483,8 @@ async fn request_leeway_time(
     (route_id, direction): (RouteId, String),
     q: CallbackQuery,
 ) -> HandlerResult {
+    log::warn!("RequestLeewayTime:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     if let Some(stop_id) = q.data {
@@ -501,6 +515,8 @@ async fn receive_leeway_time(
     (route_id, stop_id, direction, bot_msg): (RouteId, StopId, String, MessageId),
     msg: Message,
 ) -> HandlerResult {
+    log::warn!("ReceiveLeewayTime:\r\n{msg:#?}");
+
     if let Some(leeway) = msg.text() {
         if let Ok(leeway_minutes) = leeway.parse::<u64>() {
             let keys: Vec<Vec<InlineKeyboardButton>> = vec![vec![
@@ -549,6 +565,8 @@ async fn save_query(
     (route_id, stop_id, direction, leeway): (RouteId, StopId, String, u64),
     q: CallbackQuery,
 ) -> HandlerResult {
+    log::warn!("SaveQuery:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     if let Some(save) = q.data {
@@ -608,6 +626,8 @@ async fn save_query_name(
     (route_id, stop_id, direction, leeway, bot_msg): (RouteId, StopId, String, u64, MessageId),
     msg: Message,
 ) -> HandlerResult {
+    log::warn!("SaveQueryName:\r\n{msg:#?}");
+
     if let Some(name) = msg.text() {
         dialogue.chat_id().add_route_to_saved(
             name.to_string(),
@@ -659,6 +679,8 @@ async fn search(
     bot_msg: MessageId,
     q: CallbackQuery,
 ) -> HandlerResult {
+    log::warn!("Search:\r\n{q:#?}");
+
     bot.answer_callback_query(q.id).await?;
 
     if let Some(str) = q.data {
@@ -721,6 +743,8 @@ async fn look_for_transport(
                 if next_on_timetable.iter().any(|&t| t < 60) {
                     log::warn!("Yielded by timetable");
 
+                    bot.delete_message(dialogue.chat_id(), bot_msg).await?;
+
                     let keys: Vec<Vec<InlineKeyboardButton>> =
                         vec![vec![InlineKeyboardButton::callback(
                             "🆕Новый поиск🆕",
@@ -729,7 +753,6 @@ async fn look_for_transport(
 
                     let keyboard = InlineKeyboardMarkup::new(keys);
 
-                    bot.delete_message(dialogue.chat_id(), bot_msg).await?;
                     let bot_msg = bot.send_message(dialogue.chat_id(), "⏰Я не нашел актуальных данных, но если верить расписанию, пора выходить!⏰").reply_markup(keyboard).await?.id;
 
                     dialogue.update(State::Start { bot_msg }).await?;
@@ -740,7 +763,10 @@ async fn look_for_transport(
                 for time in waiting_list {
                     if let Some(time_left) = time.checked_sub(leeway * 60) {
                         if time_left < 60 {
-                            log::warn!("Signalled by actual data");
+                            log::warn!("Yielded by actual data");
+
+                            bot.delete_message(dialogue.chat_id(), bot_msg).await?;
+
                             let keys: Vec<Vec<InlineKeyboardButton>> =
                                 vec![vec![InlineKeyboardButton::callback(
                                     "🆕Новый поиск🆕",
@@ -749,7 +775,6 @@ async fn look_for_transport(
 
                             let keyboard = InlineKeyboardMarkup::new(keys);
 
-                            bot.delete_message(dialogue.chat_id(), bot_msg).await?;
                             let bot_msg = bot
                                 .send_message(dialogue.chat_id(), "⏰Пора выходить!⏰")
                                 .reply_markup(keyboard)
